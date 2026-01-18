@@ -1,12 +1,14 @@
 NUMPY
 python-jobspy
-openai
 pandas
 python-dotenv
 markdown2
-langchain
-langchain_openai
 pydantic
 bs4
 fake_useragent
 pypdf
+openai
+langchain>=0.1.0
+langchain-core>=0.1.10
+langchain-community>=0.0.10
+langchain-openai>=0.0.5
