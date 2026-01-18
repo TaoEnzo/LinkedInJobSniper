@@ -1,9 +1,3 @@
-这是一份为你量身定制的 `README.md`。它不仅介绍项目功能，还详细写明了如何配置 GitHub Secrets（这是你项目运行的关键）。
-
-你可以直接复制下面的内容，保存为项目根目录下的 `README.md` 文件。
-
----
-
 # 🕵️‍♂️ LinkedIn Job Sniper
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
