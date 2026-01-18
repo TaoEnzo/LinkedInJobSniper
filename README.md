@@ -24,6 +24,36 @@ Stop doom-scrolling LinkedIn. Let the AI agent work for you 24/7.
 3.  **Evaluate**: The AI Agent reads your resume and creates a relevance score (0-100) and a reason for every job found.
 4.  **Report**: Filters the best jobs and emails them to you.
 
+## 📋 Prerequisites & Setup Guide
+
+Before configuring the secrets, you need to prepare two external accounts to ensure the agent runs successfully.
+
+### 1. Gmail Setup (App Password)
+You cannot use your standard Gmail login password. You must generate a specific **App Password**.
+
+1.  Go to your [Google Account Security](https://myaccount.google.com/security) page.
+2.  **Enable 2-Step Verification (2FA)**: This is required to generate app passwords.
+3.  Once 2FA is on, search for **"App passwords"** in the top search bar (or look under the 2-Step Verification section).
+4.  Create a new app name (e.g., `JobSniper`).
+5.  Google will give you a **16-character code** (e.g., `abcd efgh ijkl mnop`).
+6.  **Copy this code**. This will be your `EMAIL_PASSWORD`.
+    *   *Note: Spaces in the code are fine, but it's safer to remove them when pasting into GitHub Secrets.*
+
+### 2. Residential Proxy Setup (Crucial)
+LinkedIn has very strict anti-bot detection. The script will fail immediately if run from GitHub's servers (Data Center IPs) without a proxy. You need a **Residential Proxy**.
+
+1.  **Choose a Provider**: We recommend providers that offer "Pay As You Go" (no monthly commitment). Good options include:
+    *   **IPRoyal** (Royal Residential)
+    *   **ThorData**
+    *   **Smartproxy**
+2.  **Purchase Traffic**: You only need about **1GB** to last you for months.
+3.  **Generate Proxy User**: Go to the provider's dashboard and generate a proxy user.
+4.  **Format the URL**: Construct your proxy URL strictly in this format:
+    ```text
+    http://username:password@hostname:port
+    ```
+    *   *⚠️ Important*: Even if the target site is HTTPS, your proxy connection string usually uses `http://` protocol. Do not use `https://` at the start of the proxy string unless your provider explicitly specifies it.
+
 ## 🛠️ Configuration (GitHub Secrets)
 
 To run this project, you need to configure **Repository Secrets** in your GitHub repository settings.
