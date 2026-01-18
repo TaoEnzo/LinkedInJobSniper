@@ -1,0 +1,43 @@
+name: Daily Career Scout
+
+# Triggers
+on:
+  schedule:
+    # Schedule: Runs at 00:00 UTC daily
+    # (Equals 08:00 AM Singapore/Beijing Time due to UTC+8)
+    - cron: '0 0 * * *'
+  # Allows manual triggering via the 'Run workflow' button (for testing)
+  workflow_dispatch:
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest  # Runs on the latest Ubuntu environment
+
+    steps:
+      # 1. Checkout code from repository (including the resumes folder)
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      # 3. Install dependencies from requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 4. Run the main script
+      - name: Run Job Agent
+        # CRITICAL: Inject GitHub Secrets into environment variables
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
+          PROXY_URL: ${{ secrets.PROXY_URL }}
+          USER_NAME: ${{ secrets.USER_NAME }}
+        run: python main.py
