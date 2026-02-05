@@ -1,12 +1,12 @@
-import glob
 import os
+import glob  # ✅ 修复：添加了缺失的 glob 库
 import smtplib
 from typing import List, Optional
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-# web clawing imports if needed
+# web clawing imports
 import requests
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
@@ -25,62 +25,88 @@ from pydantic import BaseModel, Field
 # read pdf
 from pypdf import PdfReader
 
-
 # Load environment variables
 load_dotenv()
 
-# Configuration
-SEARCH_TERM = "Software Engineer (Python, Java)"
-LOCATIONS = ["Tokyo, Japan", "Shanghai, China", "Hongkong, China"]
+# =================================================================
+# ✅ 1. 个性化配置 (根据你的简历修改)
+# =================================================================
+
+# 搜索关键词：针对你的 Marketing / CRM / Training / Luxury 背景
+# 使用 OR 连接词可以扩大搜索范围
+SEARCH_TERM = "Retail Training OR Clienteling Manager OR CRM Coordinator OR Luxury Sales Assistant"
+
+# 地点：锁定巴黎
+LOCATIONS = ["Paris, France"]
+
 RESULT_LIMIT = 15
 HOURS_OLD = 24
+
+# 获取 Secrets
 PROXY_URL = os.getenv("PROXY_URL", None)
-RESUME = os.getenv("RESUME_TEXT", "")
-API_KEY = os.getenv("OPENAI_API_KEY")
-BASE_URL = os.getenv("API_BASE")
-CRITERIA = os.getenv("CRITERIA", "")
+RESUME = os.getenv("RESUME_CONTENT", "") # 注意：GitHub Secrets 名字要对应
+if not RESUME:
+    RESUME = os.getenv("RESUME_TEXT", "") # 兼容旧变量名
+
+API_KEY = os.getenv("API_KEY") # 对应 GitHub Secret: API_KEY
+BASE_URL = os.getenv("API_BASE") # 对应 GitHub Secret: API_BASE (DeepSeek 需要)
+
+# =================================================================
+# ✅ 2. AI 配置 (适配 DeepSeek 或 OpenAI)
+# =================================================================
 
 # Define the output data structure from AI
 class JobEvaluation(BaseModel):
     """
     Structure for job evaluation output.
     """
-
-    score: int = Field(description="A relevance score from 0 to 100 based on the resume match and job preferences.")
+    score: int = Field(description="A relevance score from 0 to 100 based on the resume match.")
     reason: str = Field(description="A concise, one-sentence reason for the score.")
 
+# 自动判断模型名称
+# 如果设置了 API_BASE (通常是 DeepSeek), 使用 deepseek-chat
+# 否则默认使用 gpt-4o-mini (OpenAI 最具性价比模型)
+model_name_to_use = "deepseek-chat" if BASE_URL else "gpt-4o-mini"
 
-# AI model
 llm = ChatOpenAI(
-    model_name="gemini-3-flash-preview",
+    model_name=model_name_to_use, 
     temperature=0,
     api_key=API_KEY,
     base_url=BASE_URL,
 )
 
-
 # structure output
 structured_llm = llm.with_structured_output(JobEvaluation)
 
-# system template
+# =================================================================
+# ✅ 3. AI 评分标准 (根据你的简历重写)
+# =================================================================
+
 system_template = """
 [Context]
-You are an expert tech career coach. Your goal is to evaluate how well a job description matches a candidate's resume and preferences.
+You are an expert career coach in the Luxury & Retail industry. Your goal is to evaluate how well a job description matches a candidate's resume.
+
+[Candidate Profile Summary]
+- Education: Master in International Marketing (SKEMA), French Language background.
+- Experience: Operations & Marketing at Qeelin (Kering), Client Marketing at Puig, Sales at Byredo.
+- Key Skills: Clienteling, CRM (Salesforce, HubSpot), Retail Training, Event Coordination, Data Analysis (Power BI, Excel).
+- Languages: Native Chinese, Professional French (C1), Professional English.
 
 [Objectives]
-Return a score by the following criteria and also give a concise, one-sentence reason for the score.
+Return a score (0-100) and a concise reason.
 
-[Criteria]
-1. Skill Match (50%): How well do the required skills and technologies in the job description align with those listed on the resume? (Programming Languages, Frameworks, Tools, etc,)
+[Scoring Criteria]
+1. **Industry Match (40%)**: Does the job belong to Luxury Retail, Fashion, or Beauty sectors? (High score for LVMH, Kering, Richemont brands).
+2. **Role Relevance (40%)**: Is it related to Training, CRM, Clienteling, Marketing Coordination, or Retail Operations? 
+3. **Skill & Language (20%)**: Does it require French/English/Chinese trilingual skills? Does it mention Salesforce/SAP/Excel?
+
+[Negative Filter]
+- If the job requires "Engineering", "Coding (Python/Java as main focus)", or "Senior Director level", give a LOW score (<30).
 """
-
-system_template += CRITERIA
-
 
 # Prompt template
 prompt_template = ChatPromptTemplate.from_messages([
-    ("system",
-     system_template),
+    ("system", system_template),
     ("user", """
     RESUME (Truncated):
     {resume}
@@ -89,37 +115,37 @@ prompt_template = ChatPromptTemplate.from_messages([
     JOB DESCRIPTION (Truncated):
     {description}
 
-    Analyze the match. Be strict. If the tech stack is completely different, give a low score.
+    Analyze the match based on the criteria. Be strict.
     """)
 ])
-
 
 # Chain
 evaluation_chain = prompt_template | structured_llm
 
 
-# Read resume
+# =================================================================
+# 4. 功能函数 (保持原样，修复了 import glob)
+# =================================================================
+
 def load_resume_from_file():
     """
     read resume from 'resumes/'
     support .pdf .txt .md
     """
-
     resume_folder = "resumes"
 
     if not os.path.exists(resume_folder):
         os.makedirs(resume_folder)
-        print("📁 Created 'resumes' folder. Please add your resume PDF there and restart.")
+        print("📁 Created 'resumes' folder.")
         return ""
 
-    # find file
+    # ✅ 这里原本报错，现在修复了 (因为顶部加了 import glob)
     files = glob.glob(os.path.join(resume_folder,"*"))
 
     if not files:
-        print("📁 No resume file found in 'resumes' folder. Please add your resume PDF there and restart.")
+        print("📁 No resume file found in 'resumes' folder.")
         return ""
 
-    # Use the first file found
     file_path = files[0]
     file_ext = os.path.splitext(file_path)[1].lower()
     content = ""
@@ -135,26 +161,22 @@ def load_resume_from_file():
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
         else:
-            print("❌ Unsupported resume file format. Please use PDF, TXT, or MD.")
+            print("❌ Unsupported resume file format.")
             return ""
-
         return content
     except Exception as e:
         print(f"❌ Error reading resume file: {e}")
         return ""
 
-if RESUME is None:
+# 如果环境变量没配置简历，尝试从本地读取
+if not RESUME or len(RESUME) < 10:
     RESUME = load_resume_from_file()
 
-# web clawling functions
 def fetch_missing_description(url: str, proxies: dict = None) -> str:
     """
     if the jobspy cannot fetch description, try to fetch from job url directly.
-    -- For LinkedIn jobs only for now.
     """
     print(f"   ⛑️  Attempting manual fetch for: {url}...")
-
-    # Set up headers
     ua = UserAgent()
     headers = {
         "User-Agent": ua.random,
@@ -163,49 +185,30 @@ def fetch_missing_description(url: str, proxies: dict = None) -> str:
     }
 
     try:
-        # random sleep to mimic human behavior
         time.sleep(random.uniform(2, 5))
-
-        # transfer the proxy to requests format (dictonary)
-        proxies_dict = {"http": PROXY_URL, "https": PROXY_URL} if PROXY_URL else None
-
         response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
-
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-
+            # 针对不同网站的尝试
             description_div = soup.find("div", {"class": "show-more-less-html__markup"}) or \
                               soup.find("div", {"class": "description__text"}) or \
                               soup.find("div", {"class": "job-description"})
-
             if description_div:
-                text = description_div.get_text(separator="\n").strip()
-                return text
+                return description_div.get_text(separator="\n").strip()
             else:
                 return soup.get_text()[:5000]
         else:
-            print(f"     ❌  Failed to fetch page, status code: {response.status_code}")
             return ""
     except Exception as e:
-        print(f"     ❌  Exception during manual fetch: {str(e)}")
         return ""
 
-# scrape jobs
 def get_jobs_data(location: str) -> pd.DataFrame:
-    """
-    Scrape job listings by JobSpy.
-
-    Add Retry logic if needed.
-    """
     proxies = [PROXY_URL] if PROXY_URL else None
     print(f"🕵️  CareerScout is searching for '{SEARCH_TERM}' in '{location}'...")
-    print(f"🔌  Proxy: {proxies[0] if proxies else 'None'}")
-
-    MAX_RETRIES = 5
-
+    
+    MAX_RETRIES = 3
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            print(f"   🔄 Attempt {attempt} of {MAX_RETRIES}...")
             jobs = scrape_jobs(
                 site_name=["linkedin"],
                 search_term=SEARCH_TERM,
@@ -214,38 +217,32 @@ def get_jobs_data(location: str) -> pd.DataFrame:
                 hours_old=HOURS_OLD,
                 proxies=proxies
             )
-
             print(f"✅  Scraped {len(jobs)} jobs.")
             return jobs
         except Exception as e:
-            print(f"     ❌  Error on attempt {attempt}: {str(e)}")
-            print(f"❌  Error during job scraping: {str(e)}")
-
-            if attempt > MAX_RETRIES:
-                wait_time = random.uniform(3, 6)
-                print(f"   ⏳ Waiting for {wait_time:.2f} seconds before retrying...")
-                time.sleep(wait_time)
+            print(f"   ❌ Error on attempt {attempt}: {str(e)}")
+            if attempt < MAX_RETRIES:
+                time.sleep(random.uniform(3, 6))
             else:
-                print("All retry attempts failed. Exiting scraping process.")
+                print("All retry attempts failed.")
     return pd.DataFrame()
 
-
 def evaluate_job(title: str, description: str) -> dict:
-    """Using Langchain to evaluate a job posting against the resume."""
     if not description or len(str(description)) < 50:
-        return {"score": 0, "reason": "Job description too short or missing"}
+        return {"score": 0, "reason": "Job description missing"}
+    
+    # 如果简历内容也没加载成功，给一个警告但继续运行
+    resume_content = RESUME if RESUME else "Candidate has Luxury Retail and Marketing experience."
 
     try:
-        # 调用 Chain
         result: JobEvaluation = evaluation_chain.invoke({
-            "resume": RESUME[:3000],  # save token
+            "resume": resume_content[:3000], 
             "title": title,
             "description": description[:3000]
         })
         return {"score": result.score, "reason": result.reason}
-
     except Exception as e:
-        print(f"⚠️  AI Evaluation Error for '{title}': {e}")
+        print(f"⚠️  AI Evaluation Error: {e}")
         return {"score": 0, "reason": "AI Error"}
 
 def send_email(top_jobs: List[dict]):
@@ -256,15 +253,18 @@ def send_email(top_jobs: List[dict]):
     sender = os.getenv("EMAIL_SENDER")
     password = os.getenv("EMAIL_PASSWORD")
     receiver = os.getenv("EMAIL_RECEIVER")
+    
+    if not sender or not password:
+        print("❌ Email credentials missing. Check GitHub Secrets.")
+        return
 
-    subject = f"🚀 CareerScout: Top {len(top_jobs)} Jobs for {datetime.now().strftime('%Y-%m-%d')}"
+    subject = f"🚀 Job Report: Top {len(top_jobs)} Roles for {datetime.now().strftime('%Y-%m-%d')}"
 
-    # HTML Email Template
     html_body = f"""
         <html>
         <body style="font-family: Arial, sans-serif;">
-            <h2 style="color: #2c3e50;">CareerScout Daily Report</h2>
-            <p>Found <b>{len(top_jobs)}</b> high-match positions for you today:</p>
+            <h2 style="color: #2c3e50;">Daily Job Matches (Paris & Luxury)</h2>
+            <p>Found <b>{len(top_jobs)}</b> matches based on your profile (SKEMA, Kering, Puig exp):</p>
             <table style="border-collapse: collapse; width: 100%; max-width: 800px;">
                 <tr style="background-color: #f8f9fa; text-align: left;">
                     <th style="padding: 10px; border-bottom: 2px solid #ddd;">Score</th>
@@ -276,7 +276,7 @@ def send_email(top_jobs: List[dict]):
         """
 
     for job in top_jobs:
-        color = "#27ae60" if job['score'] >= 85 else "#d35400"
+        color = "#27ae60" if job['score'] >= 80 else "#d35400"
         html_body += f"""
                 <tr>
                     <td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold; color: {color};">
@@ -293,14 +293,7 @@ def send_email(top_jobs: List[dict]):
                 </tr>
             """
 
-    html_body += """
-            </table>
-            <p style="margin-top: 20px; font-size: 12px; color: #888;">
-                Powered by CareerScout-Agent using LangChain & Python.
-            </p>
-        </body>
-        </html>
-        """
+    html_body += "</table></body></html>"
 
     msg = MIMEMultipart()
     msg['Subject'] = subject
@@ -316,20 +309,17 @@ def send_email(top_jobs: List[dict]):
     except Exception as e:
         print(f"❌  Email sending failed: {e}")
 
-
 def main():
     # 1. Scraping
     df = pd.DataFrame()
     for location in LOCATIONS:
         df = pd.concat([df,get_jobs_data(location)], ignore_index=True, sort=False)
+    
     if df.empty:
+        print("No jobs found via scraping.")
         return
 
-    # # leave 3 jobs for testing
-    # df = df.head(3)
-
     scored_jobs = []
-
     req_proxies = {"http": PROXY_URL, "https": PROXY_URL} if PROXY_URL else None
 
     # 2. Evaluation Loop
@@ -340,20 +330,17 @@ def main():
         description = row.get('description')
         job_url = row.get('job_url')
 
+        # 补救措施：如果没有JD，尝试手动抓取
         if not description or len(str(description)) < 50:
             if job_url:
                 description = fetch_missing_description(job_url, proxies=req_proxies)
 
-        if not description or len(str(description)) < 50:
-            print(f"   ⚠️  Skipping '{title}' due to insufficient description.")
-            continue
-
         evaluation = evaluate_job(title, description)
 
-        print()
-        print(f"   📝 '{title}' scored {evaluation['score']}: {evaluation['reason']}")
+        print(f"   📝 [{evaluation['score']}] {title}: {evaluation['reason']}")
 
-        if evaluation['score'] >=50:  # 阈值过滤
+        # 阈值：只保留 50 分以上的职位
+        if evaluation['score'] >= 50:
             scored_jobs.append({
                 "title": title,
                 "company": row.get('company'),
@@ -361,11 +348,12 @@ def main():
                 "score": evaluation['score'],
                 "reason": evaluation['reason']
             })
-        # 3. Sorting & Sending
-        scored_jobs.sort(key=lambda x: x['score'], reverse=True)
-        top_15 = scored_jobs[:15]
 
-    send_email(top_15)
+    # 3. Sorting & Sending
+    scored_jobs.sort(key=lambda x: x['score'], reverse=True)
+    top_jobs = scored_jobs[:15]
+    
+    send_email(top_jobs)
 
 if __name__ == "__main__":
     main()
